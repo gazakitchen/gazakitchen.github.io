@@ -293,25 +293,32 @@
         showView('loading-view');
 
         try {
-            // Added cache: 'no-cache' to ensure we get the latest file
-            const response = await fetch('data.json', { cache: 'no-cache' });
+            // 1. Fetch the JSON file containing the payload
+            const response = await fetch('data.json');
+            if (!response.ok) throw new Error('فشل تحميل الملف');
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            const wrapper = await response.json();
+            const base64Data = wrapper.payload;
+
+            // 2. Convert Base64 string to Binary (Uint8Array)
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
             }
 
-            // Verify the stream exists before piping
-            if (!response.body) {
-                throw new Error('ReadableStream not supported or empty response');
-            }
+            // 3. Decompress Zlib using DecompressionStream
+            // Note: 'deflate' is the standard for Zlib in this API
+            const decompressionStream = new DecompressionStream('deflate');
+            const writer = decompressionStream.writable.getWriter();
+            writer.write(bytes);
+            writer.close();
 
-            // Decompressing the GZIP stream
-            const ds = new DecompressionStream('gzip');
-            const decompressedStream = response.body.pipeThrough(ds);
+            const output = await new Response(decompressionStream.readable).arrayBuffer();
+            const decoder = new TextDecoder();
+            const jsonText = decoder.decode(output);
             
-            // Convert the decompressed stream to text
-            const responseData = await new Response(decompressedStream);
-            const jsonText = await responseData.text();
+            // 4. Parse the final data
             const data = JSON.parse(jsonText);
 
             setTimeout(() => {
@@ -329,24 +336,14 @@
             }, 600);
 
         } catch (error) {
-            console.error("Detailed Search Error:", error);
-            
-            // Provide more specific feedback in the UI
-            let userMessage = "حدث خطأ في الاتصال بالقاعدة.";
-            if (location.protocol === 'file:') {
-                userMessage = "خطأ أمني: يرجى تشغيل الملف عبر خادم (Live Server) وليس بفتحه مباشرة.";
-            } else if (error.message.includes('JSON')) {
-                userMessage = "خطأ في تنسيق البيانات المستلمة.";
-            }
-            
-            document.getElementById('error-message').textContent = userMessage;
+            console.error("Search Error:", error);
+            document.getElementById('error-message').textContent = "حدث خطأ أثناء معالجة البيانات، يرجى المحاولة لاحقاً.";
             showView('error-view');
         }
     }
 
     function renderResults(results) {
         const container = document.getElementById('results-content');
-        
         let html = `
             <div class="table-container">
                 <table>
@@ -372,13 +369,8 @@
             `;
         });
 
-        html += `
-                    </tbody>
-                </table>
-            </div>
-            <p style="margin-top: 15px; font-size: 0.8rem; color: var(--success-color);">تم العثور على ${results.length} نتيجة</p>
-        `;
-
+        html += `</tbody></table></div>
+        <p style="margin-top: 15px; font-size: 0.8rem; color: var(--success-color);">تم العثور على ${results.length} نتيجة</p>`;
         container.innerHTML = html;
     }
 </script>
