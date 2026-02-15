@@ -272,102 +272,116 @@
     </div>
 
 <script>
-        
-        function showView(viewId) {
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.getElementById(viewId).classList.add('active');
+    function showView(viewId) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+    }
+
+    async function performSearch() {
+        const idInput = document.getElementById('id-input').value.trim();
+        const locSelect = document.getElementById('location-select').value;
+
+        if (!idInput || idInput.length < 4) {
+            alert("يرجى إدخال آخر 4 أرقام من الهوية بشكل صحيح.");
+            return;
+        }
+        if (!locSelect) {
+            alert("يرجى اختيار الموقع.");
+            return;
         }
 
-        async function performSearch() {
-            const idInput = document.getElementById('id-input').value.trim();
-            const locSelect = document.getElementById('location-select').value;
+        showView('loading-view');
 
-            if (!idInput || idInput.length < 4) {
-                alert("يرجى إدخال آخر 4 أرقام من الهوية بشكل صحيح.");
-                return;
-            }
-            if (!locSelect) {
-                alert("يرجى اختيار الموقع.");
-                return;
-            }
-
-            showView('loading-view');
-
-            try {
-                // Fetching the file named data.json (which contains compressed data)
-                const response = await fetch('data.json');
-                
-                if (!response.ok) throw new Error('Network failure');
-
-                // Decompressing the stream
-                const ds = new DecompressionStream('gzip');
-                const decompressedStream = response.body.pipeThrough(ds);
-                
-                // Parsing the result
-                const blob = await new Response(decompressedStream).blob();
-                const jsonText = await blob.text();
-                const data = JSON.parse(jsonText);
-
-                setTimeout(() => {
-                    const filtered = data.filter(item => {
-                        const itemID = String(item.ID);
-                        return itemID.endsWith(idInput) && item.LOCATION === locSelect;
-                    });
-
-                    if (filtered.length > 0) {
-                        renderResults(filtered);
-                        showView('results-view');
-                    } else {
-                        showView('no-results-view');
-                    }
-                }, 600);
-
-            } catch (error) {
-                console.error("Search Error:", error);
-                document.getElementById('error-message').textContent = "حدث خطأ في قراءة البيانات، يرجى المحاولة مرة أخرى.";
-                showView('error-view');
-            }
-        }
-
-        function renderResults(results) {
-            const container = document.getElementById('results-content');
+        try {
+            // Added cache: 'no-cache' to ensure we get the latest file
+            const response = await fetch('data.json', { cache: 'no-cache' });
             
-            let html = `
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>اسم العائلة</th>
-                                <th>عدد الأفراد</th>
-                                <th>الهوية (آخر 4)</th>
-                                <th>الموقع</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-            results.forEach(item => {
-                html += `
-                    <tr>
-                        <td><strong>${item.NAME || ''}</strong></td>
-                        <td>${item.FAMILY || ''}</td>
-                        <td>${item.ID}</td>
-                        <td><small>${item.LOCATION}</small></td>
-                    </tr>
-                `;
-            });
+            // Verify the stream exists before piping
+            if (!response.body) {
+                throw new Error('ReadableStream not supported or empty response');
+            }
 
-            html += `
-                        </tbody>
-                    </table>
-                </div>
-                <p style="margin-top: 15px; font-size: 0.8rem; color: var(--success-color);">تم العثور على ${results.length} نتيجة</p>
-            `;
+            // Decompressing the GZIP stream
+            const ds = new DecompressionStream('gzip');
+            const decompressedStream = response.body.pipeThrough(ds);
+            
+            // Convert the decompressed stream to text
+            const responseData = await new Response(decompressedStream);
+            const jsonText = await responseData.text();
+            const data = JSON.parse(jsonText);
 
-            container.innerHTML = html;
+            setTimeout(() => {
+                const filtered = data.filter(item => {
+                    const itemID = String(item.ID);
+                    return itemID.endsWith(idInput) && item.LOCATION === locSelect;
+                });
+
+                if (filtered.length > 0) {
+                    renderResults(filtered);
+                    showView('results-view');
+                } else {
+                    showView('no-results-view');
+                }
+            }, 600);
+
+        } catch (error) {
+            console.error("Detailed Search Error:", error);
+            
+            // Provide more specific feedback in the UI
+            let userMessage = "حدث خطأ في الاتصال بالقاعدة.";
+            if (location.protocol === 'file:') {
+                userMessage = "خطأ أمني: يرجى تشغيل الملف عبر خادم (Live Server) وليس بفتحه مباشرة.";
+            } else if (error.message.includes('JSON')) {
+                userMessage = "خطأ في تنسيق البيانات المستلمة.";
+            }
+            
+            document.getElementById('error-message').textContent = userMessage;
+            showView('error-view');
         }
-    </script>
-    <img style="display:none;" src="https://bit.ly/gazakitchenlink">
+    }
+
+    function renderResults(results) {
+        const container = document.getElementById('results-content');
+        
+        let html = `
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>اسم العائلة</th>
+                            <th>عدد الأفراد</th>
+                            <th>الهوية (آخر 4)</th>
+                            <th>الموقع</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        results.forEach(item => {
+            html += `
+                <tr>
+                    <td><strong>${item.NAME || ''}</strong></td>
+                    <td>${item.FAMILY || ''}</td>
+                    <td>${item.ID}</td>
+                    <td><small>${item.LOCATION}</small></td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+            <p style="margin-top: 15px; font-size: 0.8rem; color: var(--success-color);">تم العثور على ${results.length} نتيجة</p>
+        `;
+
+        container.innerHTML = html;
+    }
+</script>
+<img style="display: none;" src="https://bit.ly/gazakitchenlink"
 </body>
 </html>
-
