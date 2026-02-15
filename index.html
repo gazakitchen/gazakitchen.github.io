@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>منظومة فحص طرود رمضان 2026 | GSK</title>
+    <title>منظومة فحص طرود رمضان 2026</title>
     <style>
         /* Modern CSS Variables */
         :root {
@@ -220,7 +220,7 @@
                 <path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z"/>
             </svg>
             <h1>الطرود الغذائية - رمضان 2026</h1>
-            <p class="subtitle">نظام GSK لفحص بيانات المستفيدين</p>
+            <p class="subtitle">نظام فحص بيانات المستفيدين</p>
         </div>
 
         <!-- Search View -->
@@ -271,15 +271,10 @@
         </div>
     </div>
 
-    <script>
-        /**
-         * Logic for Search and Navigation
-         */
+<script>
         
         function showView(viewId) {
-            // Hide all views
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            // Show target view
             document.getElementById(viewId).classList.add('active');
         }
 
@@ -287,7 +282,6 @@
             const idInput = document.getElementById('id-input').value.trim();
             const locSelect = document.getElementById('location-select').value;
 
-            // Basic Validation
             if (!idInput || idInput.length < 4) {
                 alert("يرجى إدخال آخر 4 أرقام من الهوية بشكل صحيح.");
                 return;
@@ -300,18 +294,24 @@
             showView('loading-view');
 
             try {
-                // Fetch data.json
+                // Fetching the file named data.json (which contains compressed data)
                 const response = await fetch('data.json');
                 
                 if (!response.ok) throw new Error('Network failure');
 
-                const data = await response.json();
+                // Decompressing the stream
+                const ds = new DecompressionStream('gzip');
+                const decompressedStream = response.body.pipeThrough(ds);
+                
+                // Parsing the result
+                const blob = await new Response(decompressedStream).blob();
+                const jsonText = await blob.text();
+                const data = JSON.parse(jsonText);
 
-                // Small delay to simulate processing for better UX
                 setTimeout(() => {
                     const filtered = data.filter(item => {
-                        // Ensure IDs are compared as strings to avoid leading zero issues
-                        return String(item.ID).endsWith(idInput) && item.LOCATION === locSelect;
+                        const itemID = String(item.ID);
+                        return itemID.endsWith(idInput) && item.LOCATION === locSelect;
                     });
 
                     if (filtered.length > 0) {
@@ -320,11 +320,11 @@
                     } else {
                         showView('no-results-view');
                     }
-                }, 800);
+                }, 600);
 
             } catch (error) {
                 console.error("Search Error:", error);
-                document.getElementById('error-message').textContent = "فشل الاتصال بالخادم، يرجى التحقق من الإنترنت.";
+                document.getElementById('error-message').textContent = "حدث خطأ في قراءة البيانات، يرجى المحاولة مرة أخرى.";
                 showView('error-view');
             }
         }
@@ -349,8 +349,8 @@
             results.forEach(item => {
                 html += `
                     <tr>
-                        <td><strong>${item.NAME}</strong></td>
-                        <td>${item.FAMILY}</td>
+                        <td><strong>${item.NAME || ''}</strong></td>
+                        <td>${item.FAMILY || ''}</td>
                         <td>${item.ID}</td>
                         <td><small>${item.LOCATION}</small></td>
                     </tr>
