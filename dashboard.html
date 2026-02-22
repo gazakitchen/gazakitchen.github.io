@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSK - Dashboard & GitHub Publisher</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    
+    <style>
+        /* التنسيق الأصلي (CSS الأصلي) */
+        :root {
+            --primary-color: #1D6F42;
+            --secondary-color: #1a5f7a;
+            --bg-color: #f4f7f9;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+            --gh-dark: #24292e;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+.url-preview {
+            background: #f1f1f1;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #555;
+            word-break: break-all;
+            margin-top: 5px;
+            border: 1px dashed #ccc;
+            text-align: left;
+            direction: ltr;
+        }
+        .files-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 25px; /* مسافة قبل زر جيت هاب */
+        }
+
+        .file-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: 1px solid #d1e9ff;
+            transition: var(--transition);
+        }
+
+        .file-row:hover {
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .file-icon {
+            width: 32px;
+            height: 32px;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: var(--secondary-color);
+            font-size: 0.95rem;
+        }
+
+        .dl-btn-small {
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            padding: 6px 15px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            transition: var(--transition);
+        }
+
+        .dl-btn-small:hover {
+            opacity: 0.8;
+        }
+        .dashboard {
+            width: 100%;
+            max-width: 800px;
+            background: var(--card-bg);
+            padding: 35px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+
+        header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #f0f0f0; padding-bottom: 20px; }
+        
+        .section { margin-bottom: 25px; text-align: right; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--secondary-color); }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e1e1;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        input:focus { border-color: var(--primary-color); }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 10px;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-github { background-color: var(--gh-dark); color: white; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .download-area {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background: #e0f2fe;
+            border-radius: var(--border-radius);
+            text-align: center;
+        }
+
+        .links-group { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+        .dl-link { color: var(--secondary-color); font-weight: bold; text-decoration: none; font-size: 0.9rem; }
+
+/* Modal Styles - Final Fix for Bottom Space */
+        #github-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            overflow-y: auto; 
+            /* This ensures that even when scrolling the background, 
+               the modal doesn't stick to the bottom edge of the screen */
+            padding: 40px 0; 
+        }
+
+        .modal-content {
+            background: white;
+            margin: 0 auto; /* Margin is handled by parent padding now */
+            padding: 30px;
+            width: 90%;
+            max-width: 450px;
+            border-radius: var(--border-radius);
+            text-align: right;
+            position: relative;
+            
+            /* Force a maximum height and allow internal scrolling */
+            max-height: 85vh; 
+            overflow-y: auto;
+            
+            /* Add extra padding at the bottom of the content itself 
+               so the last button isn't flushed against the border */
+            padding-bottom: 40px; 
+            
+            animation: slideDown 0.3s ease;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        /* Styling the internal scrollbar to keep it clean */
+        .modal-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        .modal-content::-webkit-scrollbar-thumb {
+            background: #ddd;
+            border-radius: 10px;
+        }
+.modal-content {
+    scrollbar-color: var(--primary-color) #edf0ec; /* (لون المقبض) (لون الخلفية) */
+}
+        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .loader {
+            display: none;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 20px; height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <header>
+        <h2>لوحة تحكم اعداد تقارير المستفيدين</h2>
+        <p style="color:var(--text-muted)">تحويل ملفات Excel ونشرها مباشرة</p>
+    </header>
+
+    <div class="section">
+        <label>اسم الحملة</label>
+        <input type="text" id="campaign-name" value="الطرود الغذائية - رمضان 2026">
+    </div>
+
+    <div class="section">
+        <label>رفع ملف Excel للمستفيدين</label>
+        <input type="file" id="excel-file" accept=".xlsx, .xls">
+    </div>
+
+    <div class="section" id="mapping-section" style="display:none;">
+        <label style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px;">ربط أعمدة البيانات</label>
+        <div class="grid">
+            <div><label>اسم العائلة</label><select class="col-map" id="map-NAME"></select></div>
+            <div><label>رقم الهوية</label><select class="col-map" id="map-ID"></select></div>
+            <div><label>الموقع</label><select class="col-map" id="map-LOCATION"></select></div>
+            <div><label>عدد الأفراد</label><select class="col-map" id="map-FAMILY"></select></div>
+        </div>
+    </div>
+
+    <button class="btn btn-primary" id="process-btn" disabled>إنشاء ومعالجة الملفات</button>
+
+<div class="download-area" id="result-area">
+        <h3 style="color: var(--secondary-color); margin-bottom: 20px;">✨ تمت معالجة الملفات بنجاح</h3>
+        
+        <div class="files-container">
+            <div class="file-row">
+                <div class="file-info">
+                    <svg class="file-icon" viewBox="0 0 24 24" fill="#f4b400"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M13,9V3.5L18.5,9H13Z"/></svg>
+                    <span class="file-name">data.json</span>
+                </div>
+                <a href="#" id="dl-json" class="dl-btn-small" download="data.json">تحميل الملف</a>
+            </div>
+
+            <div class="file-row">
+                <div class="file-info">
+                    <svg class="file-icon" viewBox="0 0 24 24" fill="#4285f4"><path d="M13,9V3.5L18.5,9M6,2C4.89,2 4,2.89 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2H6Z"/></svg>
+                    <span class="file-name">index.html</span>
+                </div>
+                <a href="#" id="dl-html" class="dl-btn-small" download="index.html">تحميل الصفحة</a>
+            </div>
+        </div>
+
+        <button class="btn btn-github" onclick="openGithubModal()">
+            رفع التحديث إلى GitHub مباشر 🚀
+        </button>
+    </div>
+</div>
+
+<div id="github-modal">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 20px; color: var(--gh-dark);">إعدادات النشر على GitHub</h3>
+        
+        <div class="section">
+            <label>اسم المستخدم (Username)</label>
+            <input type="text" id="gh-user" value="gazakitchen" oninput="document.querySelector('#repo-preview').textContent='Ensure a respitory: ' + this.value + '.github.io was created in your account.'">
+            <div class="url-preview" id="repo-preview">
+                Ensure the respitory: gazakitchen.github.io was created in your account.
+            </div>
+        </div>
+        <div class="section">
+            <label>اسم المجلد (اختياري)</label>
+            <input type="text" id="gh-folder" placeholder="مثال: ramadan-2026" oninput="updateUrlPreview()">
+            <div class="url-preview" id="url-preview">
+                username.github.io/folder-name
+            </div>
+        </div>
+        <div class="section">
+            <label>اسم الدومين (اختياري)</label>
+            <input type="text" id="gh-domain" placeholder="مثال: report.example.com">
+                                    <div class="url-preview">
+                Add github A records to your DNS. <a target="_blank" href="https://gazakitchen.github.io/github-dns">Learn more</a>.
+            </div>
+        </div>
+        <div class="section">
+            <label>البريد الإلكتروني</label>
+            <input type="email" id="gh-email" value="gazakitchen@protonmail.com">
+                        <div class="url-preview">
+                Github account email.
+            </div>
+        </div>
+
+        <div class="section">
+            <label>رمز الوصول (Access Token)</label>
+            <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
+            <small style="color: var(--text-muted); font-size: 11px;" style="display: none;">يحتاج صلاحية ": repo "</small>
+        </div>
+
+        <div id="gh-status-msg" style="margin: 15px 0; font-size: 13px; font-weight: bold;"></div>
+
+        <button class="btn btn-primary" id="push-btn" onclick="uploadToGithub()">بدء الرفع والنشـر</button>
+        <button class="btn" onclick="closeGithubModal()" style="background:none; color: var(--text-muted);">إغلاق</button>
+    </div>
+</div>
+
+<script>
+    let excelData = [];
+    let generatedFiles = { html: null, json: null };
+
+    // تحميل الإعدادات المحفوظة عند فتح الصفحة لسهولة الاستخدام
+    window.onload = () => {
+        if(localStorage.getItem('gh-user')) document.getElementById('gh-user').value = localStorage.getItem('gh-user');
+    };
+function updateUrlPreview() {
+        const user = document.getElementById('gh-user').value.trim().split('.')[0];
+        const repo = user ? `${user}.github.io` : 'gazakitchen.github.io';
+        const folder = document.getElementById('gh-folder').value.trim();
+        const preview = document.getElementById('url-preview');
+        
+        let fullPath = `${repo}/`;
+        if (folder) {
+            // تنظيف المسار من أي مائلات زائدة
+            const cleanFolder = folder.replace(/^\/+|\/+$/g, '');
+            fullPath += cleanFolder + "/";
+        }
+        preview.innerText = fullPath;
+    }
+    // --- المرحلة 1: معالجة ملف Excel ---
+    document.getElementById('excel-file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                excelData = XLSX.utils.sheet_to_json(sheet);
+                
+                if (excelData.length > 0) {
+                    const cols = Object.keys(excelData[0]);
+                    document.querySelectorAll('.col-map').forEach(select => {
+                        select.innerHTML = cols.map(c => `<option value="${c}">${c}</option>`).join('');
+                    });
+                    document.getElementById('mapping-section').style.display = 'block';
+                    document.getElementById('process-btn').disabled = false;
+                }
+            } catch (err) {
+                alert("خطأ في قراءة ملف الإكسل، تأكد من صيغة الملف.");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    // --- المرحلة 2: توليد الملفات والضغط (Chunks Processing) ---
+    document.getElementById('process-btn').addEventListener('click', function() {
+        const campaign = document.getElementById('campaign-name').value;
+        const mapping = {
+            NAME: document.getElementById('map-NAME').value,
+            ID: document.getElementById('map-ID').value,
+            LOCATION: document.getElementById('map-LOCATION').value,
+            FAMILY: document.getElementById('map-FAMILY').value
+        };
+
+        // 1. تحويل البيانات وتطهيرها
+        const transformed = excelData.map(row => ({
+            NAME: String(row[mapping.NAME] || ''),
+            ID: String(row[mapping.ID] || '').slice(-4),
+            LOCATION: String(row[mapping.LOCATION] || ''),
+            FAMILY: String(row[mapping.FAMILY] || '')
+        }));
+
+        // 2. التحويل لـ JSON وضغطه (Level 9)
+        const jsonStr = JSON.stringify(transformed);
+        const compressed = pako.deflate(jsonStr, { level: 9 });
+
+        // 3. تحويل لـ Base64 باستخدام نظام الأجزاء (Chunking) لمنع Stack Error
+        let binary = '';
+        const len = compressed.byteLength;
+        const chunkSize = 1024 * 32; // معالجة 32 كيلوبايت في المرة الواحدة
+        for (let i = 0; i < len; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, compressed.subarray(i, Math.min(i + chunkSize, len)));
+        }
+        const base64 = btoa(binary);
+
+        generatedFiles.json = JSON.stringify({ payload: base64 });
+        generatedFiles.html = generateSearchHTML(campaign);
+
+        // 4. تحديث روابط التحميل اليدوي
+        const jsonBlob = new Blob([generatedFiles.json], {type: 'application/json'});
+        const htmlBlob = new Blob([generatedFiles.html], {type: 'text/html'});
+        document.getElementById('dl-json').href = URL.createObjectURL(jsonBlob);
+        document.getElementById('dl-html').href = URL.createObjectURL(htmlBlob);
+        
+        document.getElementById('result-area').style.display = 'block';
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    });
+
+    // --- المرحلة 3: منطق GitHub والرفع ---
+    function openGithubModal() { document.getElementById('github-modal').style.display = 'block'; }
+    function closeGithubModal() { document.getElementById('github-modal').style.display = 'none'; }
+
+    async function uploadToGithub() {
+        const user = document.getElementById('gh-user').value.trim();
+        const repo = user ? `${user}.github.io` : 'gazakitchen.github.io';
+        const token = document.getElementById('gh-token').value.trim();
+        const email = document.getElementById('gh-email').value.trim();
+        const folder = document.getElementById('gh-folder').value.trim().replace(/^\/+|\/+$/g, '').replace(/ /g, '-');
+        const msgBox = document.getElementById('gh-status-msg');
+        const btn = document.getElementById('push-btn');
+
+        if (!user || !token || !repo) {
+            msgBox.style.color = "red";
+            msgBox.innerText = "⚠️ يرجى إدخال اسم المستخدم، المستودع، والتوكن.";
+            return;
+        }
+
+        // حفظ الإعدادات
+        localStorage.setItem('gh-user', user);
+
+        btn.disabled = true;
+        msgBox.style.color = "orange";
+        msgBox.innerText = "⏳ جاري الرفع إلى GitHub...";
+
+        try {
+            const indexPath = folder ? `${folder}/index.html` : 'index.html';
+            const dataPath = folder ? `${folder}/data.json` : 'data.json';
+
+            await githubPutRequest(user, repo, token, email, indexPath, generatedFiles.html);
+            msgBox.innerText = `⏳ تم رفع ${indexPath}... جاري رفع الباقي`;
+            
+            await githubPutRequest(user, repo, token, email, dataPath, generatedFiles.json);
+            const customDomain = document.getElementById('gh-domain').value.trim().replace('http://', '').replace('https://', '');
+            if (customDomain){await githubPutRequest(user, repo, token, email, 'CNAME', customDomain);}   
+            msgBox.style.color = "green";
+            msgBox.innerText = "✅ تم النشر بنجاح! الموقع محدث الآن.";
+            setTimeout(closeGithubModal, 3000);
+        } catch (err) {
+            console.error(err);
+            if (err.status >= 400 && err.status < 500) {
+                msgBox.style.color = "red";
+                msgBox.innerText = "❌ خطأ إعدادات: تأكد من التوكن (Permissions) واسم المستودع.";
+            } else {
+                msgBox.style.color = "red";
+                msgBox.innerText = "🌐 خطأ شبكة: تأكد من اتصال الإنترنت وحاول مجدداً.";
+            }
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function githubPutRequest(user, repo, token, email, fileName, content) {
+        const url = `https://api.github.com/repos/${user}/${repo}/contents/${fileName}`;
+        let sha = null;
+        
+        const check = await fetch(url, { headers: { 'Authorization': `token ${token}` } });
+        if (check.ok) {
+            const metadata = await check.json();
+            sha = metadata.sha;
+        }
+
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: `Update ${fileName} via Dashboard`,
+                content: btoa(unescape(encodeURIComponent(content))),
+                sha: sha,
+                committer: { name: user, email: email }
+            })
+        });
+
+        if (!response.ok) {
+            const errorInfo = await response.json();
+            const err = new Error(errorInfo.message);
+            err.status = response.status;
+            throw err;
+        }
+    }
+
+    // --- توليد كود HTML البحث (مطابق تماماً للتنسيق والمنطق الأصلي) ---
+    
+// --- توليد كود HTML البحث (مطابق تماماً للتنسيق والمنطق الأصلي) ---
+    function generateSearchHTML(campaignTitle) {
+        return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المستفيدين من ${campaignTitle}</title>
+    <meta property="og:title" content="فحص بيانات المستفيدين - ${campaignTitle}">
+    <meta property="og:description" content="البحث عن بيانات المستفيدين">
+    <meta property="og:image" content="https://gazasoupkitchen.org/wp-content/uploads/2025/08/1-3-1024x199.png">
+    <style>
+        :root {
+            --primary-color: #1a5f7a;
+            --secondary-color: #ffd700;
+            --bg-color: #f4f7f9;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --error-color: #d9534f;
+            --success-color: #5cb85c;
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .container { width: 100%; max-width: 600px; background: var(--card-bg); padding: 30px; border-radius: var(--border-radius); box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
+        .header { margin-bottom: 30px; }
+        h1 { font-size: 1.5rem; color: var(--primary-color); margin-bottom: 5px; }
+        p.subtitle { font-size: 0.9rem; color: var(--text-muted); }
+        .form-group { margin-bottom: 20px; text-align: right; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--primary-color); }
+        input, select { width: 100%; padding: 12px 15px; border: 2px solid #e1e1e1; border-radius: var(--border-radius); font-size: 1rem; outline: none; transition: var(--transition); }
+        input:focus, select:focus { border-color: var(--primary-color); }
+        .btn { width: 100%; padding: 14px; border: none; border-radius: var(--border-radius); font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: var(--transition); margin-top: 10px; }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-outline { background-color: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); margin-top: 5px; }
+        .view { display: none; animation: fadeIn 0.4s ease forwards; }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .table-container { overflow-x: auto; margin-top: 20px; border-radius: 8px; border: 1px solid #eee; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { background-color: var(--primary-color); color: white; padding: 12px; text-align: right; }
+        td { padding: 12px; border-bottom: 1px solid #eee; text-align: right; }
+        .alert { padding: 15px; border-radius: var(--border-radius); margin-bottom: 20px; }
+        .alert-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img style="max-width:100px; max-height:auto;" src="https://gazakitchen.github.io/logogaza.png">
+            <h1>${campaignTitle}</h1>
+            <p class="subtitle">نظام فحص بيانات المستفيدين</p>
+        </div>
+        <div id="search-view" class="view active">
+            <div class="form-group">
+                <label for="id-input">آخر 4 أرقام من هوية الزوج</label>
+                <input type="number" id="id-input" placeholder="" pattern="\\d{4}">
+            </div>
+            <div class="form-group">
+                <label for="location-select">الموقع</label>
+                <select id="location-select"><option value="">-- اختر المنطقة --</option></select>
+            </div>
+            <button class="btn btn-primary" onclick="performSearch()">بـحـث</button>
+        </div>
+        <div id="loading-view" class="view"><div class="loader"></div><p>جاري جلب البيانات والتحقق...</p></div>
+        <div id="results-view" class="view"><div id="results-content"></div><button class="btn btn-outline" onclick="showView('search-view')">بحث جديد</button></div>
+        <div id="no-results-view" class="view"><div class="alert alert-error">لم يتم العثور على نتائج تطابق البيانات المدخلة</div><button class="btn btn-primary" onclick="showView('search-view')">العودة للبحث</button></div>
+    </div>
+
+<script>
+    let rawData = [];
+    async function load() {
+        try {
+            const r = await fetch('data.json');
+            const j = await r.json();
+            const bin = atob(j.payload);
+            const bytes = new Uint8Array(bin.length);
+            for(let i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            const ds = new DecompressionStream('deflate');
+            const writer = ds.writable.getWriter();
+            writer.write(bytes); writer.close();
+            const out = await new Response(ds.readable).arrayBuffer();
+            rawData = JSON.parse(new TextDecoder().decode(out));
+            const locs = [...new Set(rawData.map(d => d.LOCATION))];
+            const sel = document.getElementById('location-select');
+            locs.forEach(l => { if(l){ const o = document.createElement('option'); o.value = o.text = l; sel.add(o); } });
+        } catch(e) { console.error(e); }
+    }
+
+    function showView(viewId) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+    }
+
+    function performSearch() {
+        const idInput = document.getElementById('id-input').value.trim();
+        const locSelect = document.getElementById('location-select').value;
+        if (!idInput || idInput.length < 4 || !locSelect) { alert("يرجى إدخال البيانات بشكل صحيح"); return; }
+        showView('loading-view');
+        setTimeout(() => {
+            const res = rawData.filter(d => String(d.ID).endsWith(idInput) && d.LOCATION === locSelect);
+            if (res.length > 0) { renderResults(res); showView('results-view'); } 
+            else { showView('no-results-view'); }
+        }, 600);
+    }
+
+    function renderResults(results) {
+        const container = document.getElementById('results-content');
+        let html = \`
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>اسم العائلة</th>
+                            <th>عدد الأفراد</th>
+                            <th>هوية الزوج (آخر 4 ارقام)</th>
+                            <th>الموقع</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        \`;
+        results.forEach(item => {
+            html += \`
+                <tr>
+                    <td><strong>\${item.NAME || ''}</strong></td>
+                    <td>\${item.FAMILY || ''}</td>
+                    <td>\${item.ID}</td>
+                    <td><small>\${item.LOCATION}</small></td>
+                </tr>
+            \`;
+        });
+        html += \`</tbody></table></div><p style="margin-top: 15px; font-size: 0.8rem; color: #5cb85c;">تم العثور على \${results.length} نتيجة</p>\`;
+        container.innerHTML = html;
+    }
+    load();
+<\/script>
+<img style="display: none;" src="https://bit.ly/gazakitchenlinks">
+</body>
+</html>`;
+    }
+</script>
+
+</body>
+</html>
