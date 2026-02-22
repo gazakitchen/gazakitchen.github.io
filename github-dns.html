@@ -117,35 +117,9 @@
         <p>هي بمثابة "دفتر عناوين" يخبر المتصفح أين يجد موقعك. لربط موقعك بـ GitHub، نحتاج لتوجيه الدومين إلى خوادم GitHub باستخدام طريقتين:</p>
     </div>
 
-    <section class="method-box method-active">
-        <span class="badge badge-sub">الخيار الأول: الأكثر شيوعاً</span>
-        <h2>ربط دومين فرعي (Subdomain)</h2>
-        <p>إذا كنت تريد رابطاً مثل <code>check.yourdomain.com</code>. هذه الطريقة هي **الأسهل والأكثر استقراراً**.</p>
-        
-        <p><strong>ماذا نكتب؟</strong> نستخدم سجل <strong>CNAME</strong> فقط.</p>
-        
-        
-        
-        <table class="dns-table">
-            <thead>
-                <tr>
-                    <th>Type</th>
-                    <th>Name / Host</th>
-                    <th>Value / Target</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>CNAME</td>
-                    <td><code>check</code> <small>(أو أي اسم تختاره)</small></td>
-                    <td><code>username.github.io</code></td>
-                </tr>
-            </tbody>
-        </table>
-    </section>
 
     <section class="method-box">
-        <span class="badge badge-root">الخيار الثاني</span>
+        <span class="badge badge-root">الخيار الاول</span>
         <h2>ربط الدومين الأساسي (Root Domain)</h2>
         <p>إذا كنت تريد الرابط أن يكون الدومين نفسه مباشرة مثل <code>yourdomain.com</code>.</p>
         
@@ -171,7 +145,33 @@
         </table>
         <p><small>* ملاحظة: الرمز <code>@</code> في خانة الاسم يعني الدومين الأساسي نفسه.</small></p>
     </section>
+    <section class="method-box">
+        <span class="badge badge-sub">الخيار الثاني</span>
+        <h2>ربط الدومين الفرعي (Subdomain)</h2>
+        <p>إذا كنت تريد رابطاً مثل <code>check.yourdomain.com</code>.</p>
+        
+        <p><strong>ما هي سجلات A Records؟</strong> هي سجلات تربط اسم الدومين مباشرة بعناوين IP الخاصة بخوادم GitHub. يجب إضافة 4 سجلات لضمان التوافر الدائم للموقع.</p>
+        
+        
 
+        <p><strong>ماذا نكتب؟</strong> نستخدم سجلات <strong>A</strong>.</p>
+        <table class="dns-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Name / Host</th>
+                    <th>Value (IP Address)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>A</td><td>check</td><td>185.199.108.153</td></tr>
+                <tr><td>A</td><td>check</td><td>185.199.109.153</td></tr>
+                <tr><td>A</td><td>check</td><td>185.199.110.153</td></tr>
+                <tr><td>A</td><td>check</td><td>185.199.111.153</td></tr>
+            </tbody>
+        </table>
+        <p><small>* ملاحظة: الرمز <code>check</code> في خانة الاسم يعني الدومين سيكون <code>check.yourdomain.com</code> يمكنك اعتماد اي تسمية أخرى.</small></p>
+    </section>
     <div class="explanation" style="border-right: 5px solid var(--accent);">
         <strong>⚠️ تنبيه هام:</strong> 
         بعد إضافة السجلات في لوحة تحكم الدومين، يجب عليك كتابة الدومين (أو الدومين الفرعي) في حقل <strong>"الدومين الخاص"</strong> داخل لوحة التحكم عند الرفع ليتم إنشاء ملف <code>CNAME</code> تلقائياً.
