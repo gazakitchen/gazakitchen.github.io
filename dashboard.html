@@ -32,6 +32,7 @@
             min-height: 100vh;
             padding: 20px;
         }
+        select option[disabled] { color: #999; }
 .url-preview {
             background: #f1f1f1;
             padding: 8px;
@@ -281,7 +282,7 @@
             <label>اسم المستخدم (Username)</label>
             <input type="text" id="gh-user" value="gazakitchen" oninput="document.querySelector('#repo-preview').textContent='Ensure a respitory: ' + this.value + '.github.io was created in your account.'">
             <div class="url-preview" id="repo-preview">
-                Ensure the respitory: gazakitchen.github.io was created in your account.
+                Ensure the repository: gazakitchen.github.io was created in your account.
             </div>
         </div>
         <div class="section">
@@ -327,6 +328,19 @@
     window.onload = () => {
         if(localStorage.getItem('gh-user')) document.getElementById('gh-user').value = localStorage.getItem('gh-user');
     };
+    function checkMappingCompletion() {
+    const selects = document.querySelectorAll('.col-map');
+    let allSelected = true;
+
+    selects.forEach(select => {
+        if (select.value === "") {
+            allSelected = false;
+        }
+    });
+
+    // تفعيل الزر فقط إذا تم اختيار جميع الأعمدة
+    document.getElementById('process-btn').disabled = !allSelected;
+}
 function updateUrlPreview() {
         const user = document.getElementById('gh-user').value.trim().split('.')[0];
         const repo = user ? `${user}.github.io` : 'gazakitchen.github.io';
@@ -355,13 +369,18 @@ function updateUrlPreview() {
                 excelData = XLSX.utils.sheet_to_json(sheet);
                 
                 if (excelData.length > 0) {
-                    const cols = Object.keys(excelData[0]);
-                    document.querySelectorAll('.col-map').forEach(select => {
-                        select.innerHTML = cols.map(c => `<option value="${c}">${c}</option>`).join('');
-                    });
-                    document.getElementById('mapping-section').style.display = 'block';
-                    document.getElementById('process-btn').disabled = false;
-                }
+    const cols = Object.keys(excelData[0]);
+    document.querySelectorAll('.col-map').forEach(select => {
+        // إضافة خيار "اختر العمود" كخيار افتراضي وتعطيل زر المعالجة
+        select.innerHTML = `<option value="" disabled selected>-- اختر العمود --</option>` + 
+                           cols.map(c => `<option value="${c}">${c}</option>`).join('');
+        
+        // إضافة مستمع لحدث التغيير لكل قائمة للتحقق من الحالة
+        select.addEventListener('change', checkMappingCompletion);
+    });
+    document.getElementById('mapping-section').style.display = 'block';
+    document.getElementById('process-btn').disabled = true; // التأكد من أنه معطل في البداية
+}
             } catch (err) {
                 alert("خطأ في قراءة ملف الإكسل، تأكد من صيغة الملف.");
             }
